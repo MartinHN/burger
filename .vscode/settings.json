@@ -1,0 +1,17 @@
+{
+    "arduino.logLevel": "verbose",
+    "C_Cpp.clang_format_sortIncludes": false,
+    "files.associations": {
+        "*.ejs": "html",
+        "unordered_map": "cpp",
+        "initializer_list": "cpp",
+        "array": "cpp",
+        "*.tcc": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "vector": "cpp",
+        "string_view": "cpp",
+        "memory": "cpp",
+        "random": "cpp"
+    }
+}
