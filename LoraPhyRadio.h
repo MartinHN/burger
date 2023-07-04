@@ -12,18 +12,19 @@ const char *getStrErrFromRlib(int c);
 struct LoraPhyClass {
   // static constexpr bool implicitHeader = false; // TODO not implicit supported
 
-  static constexpr float loraFreq = 868.0f;
-  static constexpr uint8_t sf = 6; // defaults to 9
+  static constexpr float loraFreq = 868.0f; // 868.0f;
+  static constexpr uint8_t sf = 12;         // defaults to 9 , min 6?
+  // defaults to 125 , allowed 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250 and 500 kHz. Only available in %LoRa mode.
+  static constexpr float bw = 125;
   static constexpr bool hasCrc = true && !(sf == 6);
-  static constexpr float bw = 125;                               // defaults to 125
-  static constexpr uint8_t cr = 5;                               // defaults to 7 (coding rate)
+  static constexpr uint8_t cr = 8;                               // defaults to 7 (coding rate), min 5 , max 8
   static constexpr uint8_t syncWord = RADIOLIB_SX127X_SYNC_WORD; // defaults to RADIOLIB_SX127X_SYNC_WORD
-  static constexpr int8_t power = 10;                            // defaults to 10
+  static constexpr int8_t power = 20;                            // defaults to 10 max 20
   static constexpr uint16_t preambleLength = 8;                  // defaults to 8
-  static constexpr uint8_t gain = 0;                             // defaults to 0
+  static constexpr uint8_t gain = 1;                             // defaults to 0 , 0 = auto, 1 = max , 6 = min
 
-  volatile bool flagOn = false;
-  volatile unsigned long flagMs = 0;
+  volatile bool flagRxOn = false, flagTxOn = false;
+  volatile unsigned long flagTxMs = 0, flagRxMs = 0;
 
   enum class PhyState { None, Tx, Rx };
 
@@ -31,9 +32,10 @@ struct LoraPhyClass {
 
   int16_t lastRlibState = RADIOLIB_ERR_NONE;
 
-  std::function<void()> onFlag = {};
+  std::function<void()> onRxFlag = {};
+  std::function<void()> onTxFlag = {};
 
-  static constexpr bool invertIq = false;
+  static constexpr bool invertIq = true;
   bool IQBasePolarization = true;
 
   LoraPhyClass() : radio(new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN)) {}
@@ -42,8 +44,8 @@ struct LoraPhyClass {
     Display.drawOneLine("LoRa Slave/Master");
 
     if (!chk(radio.begin(loraFreq, bw, sf, cr, syncWord, power, preambleLength, gain))) {
-      while (1)
-        ;
+      while (1) {
+      }
     }
 
     // if constexpr (implicitHeader)
@@ -66,25 +68,32 @@ struct LoraPhyClass {
     } else {
       dbg.print("failed at", ln, ", code ", getStrErrFromRlib(state));
       Display.drawOneLine(getStrErrFromRlib(state));
-      // block on error
-      while (1)
-        ;
+      // block a bit on error
+      delay(400);
     }
     lastRlibState = state;
     return state == RADIOLIB_ERR_NONE;
   }
 
   void handle() {
-    if (flagOn) {
-      flagOn = false;
-      dbg.print("had flag", flagMs, "ms");
-      if (onFlag)
-        onFlag();
+    if (flagTxOn) {
+      flagTxOn = false;
+      dbg.print("had tx flag", flagTxMs, "ms");
+      if (onTxFlag)
+        onTxFlag();
+    }
+    if (flagRxOn) {
+      flagRxOn = false;
+      dbg.print("had rx flag", flagRxMs, "ms");
+      if (onRxFlag)
+        onRxFlag();
     }
   }
 
   void rxMode() {
-    flagOn = false;
+    dbg.print("setting RX");
+    flagRxOn = false;
+    flagTxOn = false;
     if (invertIq)
       chk(radio.invertIQ(IQBasePolarization));
 
@@ -93,7 +102,9 @@ struct LoraPhyClass {
   }
 
   void txMode() {
-    flagOn = false;
+    dbg.print("setting TX");
+    flagTxOn = false;
+    flagRxOn = false;
     if (invertIq)
       chk(radio.invertIQ(!IQBasePolarization));
 
@@ -105,9 +116,17 @@ struct LoraPhyClass {
     if (phyState != PhyState::Tx)
       txMode();
     lastSentPacketByteLen = s.length();
+    lastMessageSent = s;
     chk(radio.startTransmit(s));
-    return radio.getTimeOnAir(lastSentPacketByteLen);
+    return getTimeOnAirMs(lastSentPacketByteLen);
   }
+
+  uint32_t getTimeOnAirMs(size_t numBytes) const { return radio.getTimeOnAir(numBytes) / 1000; }
+
+  // void sendWaiting(const String &s) {
+  //   auto t = send(s);
+  //   delay(t / 1000 + 100);
+  // }
 
   void read(String &s) {
     if (phyState != PhyState::Rx)
@@ -116,7 +135,8 @@ struct LoraPhyClass {
   }
 
   SX1276 radio; // eu version
-  int16_t lastSentPacketByteLen = 0;
+  String lastMessageSent = {};
+  size_t lastSentPacketByteLen = 0;
 };
 
 LoraPhyClass LoraPhy;
@@ -124,8 +144,13 @@ LoraPhyClass LoraPhy;
 // interrupts
 IRAM_ATTR void setFlag(void) {
   // we sent a packet, set the flag
-  LoraPhy.flagOn = true;
-  LoraPhy.flagMs = millis();
+  if (LoraPhy.phyState == LoraPhyClass::PhyState::Tx) {
+    LoraPhy.flagTxOn = true;
+    LoraPhy.flagTxMs = millis();
+  } else if (LoraPhy.phyState == LoraPhyClass::PhyState::Rx) {
+    LoraPhy.flagRxOn = true;
+    LoraPhy.flagRxMs = millis();
+  }
 }
 
 const char *getStrErrFromRlib(int c) {

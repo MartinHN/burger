@@ -1,6 +1,31 @@
 {
     "configurations": [
         {
+            "type": "esp32-debug",
+            "request": "launch",
+            "name": "espDbg",
+            "program": "${workspaceFolder}/build/myLoRa.ino.elf",
+            "stopOnEntry": true
+        },
+        {
+            "name": "Remote GDB",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "Forward debug port",
+            "cwd": "${workspaceRoot}",
+            "program": "${workspaceRoot}/app/Intermediate/android/myapp/local/armeabi-v7a/myapp",
+            "additionalSOLibSearchPath": "${workspaceRoot}/app/Intermediate/android/mylib/local/armeabi-v7a",
+            "miDebuggerServerAddress": "localhost:5039",
+            "setupCommands": [
+                {
+                    "text": "set solib-absolute-prefix ${workspaceRoot}/app/path/android",
+                    "ignoreFailures": false
+                }
+            ],
+            "miDebuggerPath": "C:/Tools/android-ndk-r13b/prebuilt/windows-x86_64/bin/gdb.exe",
+            "MIMode": "gdb"
+        },
+        {
             "name": "C/C++: xtensa-esp32-elf-g++ build and debug active file",
             "type": "cppdbg",
             "request": "launch",

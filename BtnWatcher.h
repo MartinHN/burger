@@ -3,10 +3,14 @@
 
 struct BtnWatcher {
   short pin;
-  BtnWatcher(short _pin = BUTTON_PIN) : pin(_pin) { pinMode(pin, INPUT); }
+  bool isInverted;
+  BtnWatcher(short _pin = BUTTON_PIN, bool _isInverted = true) : pin(_pin), isInverted(_isInverted) { pinMode(pin, INPUT); }
   std::function<void(bool)> onButton = {};
   void handle() {
     bool state = digitalRead(pin);
+    if (isInverted)
+      state = !state;
+
     if (lastState != state) {
       lastState = state;
       if (onButton)

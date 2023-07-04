@@ -1,0 +1,26 @@
+[req]
+default_bits = 2048
+distinguished_name = req_distinguished_name
+req_extensions = req_ext
+x509_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+countryName = FR
+stateOrProvinceName = Mars
+localityName = Mars
+organizationName = Selfcertificate
+commonName = tinmarbook.lan
+[req_ext]
+subjectAltName = @alt_names
+[v3_req]
+basicConstraints     = CA:TRUE
+subjectAltName = @alt_names
+subjectKeyIdentifier = hash
+keyUsage             = digitalSignature, keyEncipherment
+extendedKeyUsage     = clientAuth, serverAuth
+[alt_names]
+DNS.1 = tinmarbook.lan
+DNS.2 = tinmarbook.local
+DNS.3 = pi.local
+DNS.4 = esp.local
+DNS.5 = book.local

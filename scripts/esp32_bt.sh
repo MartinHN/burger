@@ -2,7 +2,7 @@
 # set -e -x
 # Hacked together by Thorsten von Eicken in 2019
 # XTENSA_GDB="~/.platformio/packages/toolchain-xtensa32/bin/xtensa-esp32-elf-gdb"
-XTENSA_GDB="/Users/tinmarbook/Library/Arduino15/packages/esp32/tools/xtensa-esp32-elf-gcc/gcc8_4_0-esp-2021r2-patch3/bin/xtensa-esp32-elf-gdb"
+XTENSA_GDB="/Users/tinmarbook/Library/Arduino15/packages/esp32/tools/xtensa-esp32-elf-gcc/esp-2021r2-patch5-8.4.0/bin/xtensa-esp32-elf-gdb"
 
 # # Validate commandline arguments
 # if [ -z "$1" ]; then
@@ -27,9 +27,10 @@ else
 fi
 
 # Parse exception info and command backtrace
-rePC='PC\s*:? (0x40[0-2][0-9a-f]*)'
-rePC='PC\s*:? ([^\s]*)'
-reEA='EXCVADDR\s*: (0x40[0-2][0-9a-f]*)'
+rePC="PC.*:? (0x40[0-2][0-9a-f]*).*"
+# rePC='PC\s*:? ([^\s]*).*'
+# rePC='PC.*:? ([^\s]*)'
+reEA='EXCVADDR.*:? (0x40[0-2][0-9a-f]*).*'
 reBT='Backtrace:(.*)'
 reIN='^[0-9a-f:x ]+$'
 reOT='[^0-9a-zA-Z](0x40[0-2][0-9a-f]{5})[^0-9a-zA-Z]'
@@ -37,21 +38,25 @@ inBT=0
 declare -a REGS
 
 tst='.*'
-if [[ "PC      : 0x400d38fe" =~ $rePC ]]; then echo "ok"; else echo "ko"; fi
+if [[ "PC      : 0x400d3c29  PS      : 0x00060a30  A0      : 0x800d687d  A1      : 0x3ffb2190" =~ $rePC ]]; then echo "ok"; else echo "ko"; fi
 echo ${BASH_REMATCH[1]}
 # exit
 BT=
+echo "reading"
 while read p; do
-    echo "$p"
+    echo "line $p"
     if [[ "$p" =~ $rePC ]]; then
+        echo "pcf"
         # PC      : 0x400d38fe  PS      : 0x00060630  A0      : 0x800d35a6  A1      : 0x3ffb1c50
         REGS+=(PC:${BASH_REMATCH[1]})
     elif [[ "$p" =~ $reEA ]]; then
+        echo "evf"
         # EXCVADDR: 0x16000001  LBEG    : 0x400014fd  LEND    : 0x4000150d  LCOUNT  : 0xffffffff
         REGS+=(EXCVADDR:${BASH_REMATCH[1]})
     elif [[ "$p" =~ $reBT ]]; then
         # Backtrace: 0x400d38fe:0x3ffb1c50 0x400d35a3:0x3ffb1c90 0x400e40bf:0x3ffb1fb0
         BT="${BASH_REMATCH[1]}"
+        echo "btf"
         inBT=1
     elif [[ $inBT ]]; then
         if [[ "$p" =~ $reIN ]]; then
@@ -74,15 +79,18 @@ echo "BT is ${BT}"
 # Parse addresses in backtrace and add them to REGS
 n=0
 for stk in $BT; do
+    echo "line $stk"
     # ex: 0x400d38fe:0x3ffb1c50
-    if [[ $stk =~ (0x40[0-2][0-9a-f]+): ]]; then
+    if [[ $stk =~ '(0x40[0-2][0-9a-f]+):?.*' ]]; then
         addr=${BASH_REMATCH[1]}
         REGS+=("BT-${n}:${addr}")
     fi
     let "n=$n + 1"
     #[[ $n -gt 10 ]] && break
 done
+echo "REGS2 is ${REGS}"
 
+REGS=(0x400d3c29 0x40084911 0x40084919 0x400d3c26 0x400d687a 0x400e8c06)
 # Iterate through all addresses and ask GDB to print source info for each one
 for reg in "${REGS[@]}"; do
     name=${reg%:*}
