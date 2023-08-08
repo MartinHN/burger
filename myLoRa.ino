@@ -1,6 +1,7 @@
-#include "boards.h"
+#include "boardDef.h"
+
 #define BLE_SRV 0
-#define WIFI_SRV 0
+#define WIFI_SRV 1
 /// local
 #include "Dbg.h"
 
@@ -13,16 +14,20 @@
 #if BLE_SRV
 #include "MyBLEServer.h"
 #endif
-#include "wifi.h"
-#include "ESPWebFs/WebFS.h"
+
 auto dbg = Dbg("[main]");
 
 int counter = 0;
 
+#if WIFI_SRV
+#include "wifi.h"
+#include "ESPWebFs/WebFS.h"
 AsyncWebServer webServer(80);
+#endif
 
 void setup() {
-  initBoard();
+  Serial.begin(115200);
+  board::init();
   delay(500);
   // When the power is turned on, a delay is required.
   if (!SPIFFS.begin(true)) {
@@ -31,11 +36,10 @@ void setup() {
   delay(500);
   dbg.print("start");
 
-  dbg.print("has", String("started"), 1);
-  // LoraPhy.begin();
-  protocol.begin();
+  protocol.begin(); // has to call LoraPhy.begin();
 
 #if WIFI_SRV
+  // Start webServer
   MyWifi::begin("test", "");
   MyWifi::onWifiConnection = [](bool isConnected) {
     if (isConnected) {
@@ -44,17 +48,17 @@ void setup() {
     }
   };
 #endif
-// Start webServer
 #if BLE_SRV
   MyBLEServer::begin();
 #endif
 }
 
 void loop() {
+  board::loop();
 #if WIFI_SRV
   WebFS::loop();
   if (WebFS::isDoingOTA()) {
-    auto lk = Display.getScope();
+    auto lk = DisplayScope::get();
     int pctDone = 0;
     if (Update.size() != 0)
       pctDone = 100.f * Update.progress() / Update.size();
@@ -70,7 +74,7 @@ void loop() {
 #if WIFI_SRV
   MyWifi::handle();
 #endif
-  delay(100);
+  // delay(100);
 }
 
 /*

@@ -12,6 +12,7 @@
 
 using std::string;
 using std::vector;
+
 auto dbgWifi = Dbg("[wifi]");
 #define dbg dbgWifi
 
@@ -58,7 +59,7 @@ void WiFiEvent(WiFiEvent_t event) {
     // When connected set
     dbg.print("WiFi connected to ", WiFi.SSID(), WiFi.getHostname(), " @ ", WiFi.localIP());
     {
-      auto lk = Display.getScope();
+      auto lk = DisplayScope::get();
       Display.drawLine(String("WiFi connected to ") + WiFi.SSID());
       Display.drawLine(String(WiFi.getHostname()) + " @ " + WiFi.localIP());
     }
@@ -106,21 +107,25 @@ void optimizeWiFi() {
     // we do not want to be sleeping !!!!
     // ButBluetooth
     if (!WiFi.setSleep(wifi_ps_type_t::WIFI_PS_MIN_MODEM)) {
-      dbg.print(F("can't stop sleep wifi"));
+      dbg.print("can't stop sleep wifi");
     }
   } else {
-    dbg.print(F("can't optimize, not connected"));
+    dbg.print("can't optimize, not connected");
   }
 }
 
 void connectToWiFiTask(void *params) {
   WiFiMulti wifiMulti;
+  String addedNets = "";
   if (strlen(net0.ssid)) {
     wifiMulti.addAP(net0.ssid, net0.pass);
+    addedNets += String(net0.ssid) + ", ";
   }
   for (auto &n : secrets::nets) {
     wifiMulti.addAP(n.ssid, n.pass);
+    addedNets += String(n.ssid) + ", ";
   }
+  dbg.print("scanning", addedNets);
   for (;;) {
     if (WiFi.status() != WL_CONNECTED) {
       if (connected) {
@@ -194,7 +199,7 @@ void begin(const std::string &type, const std::string &_uid) {
 
   // here we could setSTA+AP if needed (supported by wifiMulti normally)
   int stackSz = 5000;
-  xTaskCreatePinnedToCore(connectToWiFiTask, "keepwifi", stackSz, NULL, 1, NULL, (CONFIG_ARDUINO_RUNNING_CORE + 0) % 2);
+  xTaskCreatePinnedToCore(connectToWiFiTask, "keepwifi", stackSz, NULL, 1, NULL, (CONFIG_ARDUINO_RUNNING_CORE + 1) % 2);
 }
 
 bool handle() {

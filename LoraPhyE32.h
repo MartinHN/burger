@@ -1,6 +1,11 @@
 #define LoRa_E32_DEBUG 1
 #include <LoRa_E32.h>
-
+#include "boardDef.h"
+// serial2 messes with psram
+#ifdef F
+#undef F
+#endif
+#define F(x) x
 auto dbgPhy = Dbg("[phy]");
 #define dbg dbgPhy
 
@@ -11,7 +16,7 @@ bool chkLoc(byte status, int ln, const char *successStr = nullptr) noexcept {
       dbg.print(successStr);
   } else {
     dbg.print("failed at", ln, ", code ", getResponseDescriptionByParams(status));
-    auto lk = Display.getScope();
+    auto lk = DisplayScope::get();
     Display.drawOneLine(getResponseDescriptionByParams(status).c_str());
     // block a bit on error
     delay(400);
@@ -26,7 +31,7 @@ bool chkLoc(byte status, int ln, const char *successStr = nullptr) noexcept {
 struct LoraPhyClass {
   // static constexpr bool implicitHeader = false; // TODO not implicit supported
 
-  static constexpr float loraFreq = 868.0f; // 868.0f;
+  // static constexpr float loraFreq = 170.0f; // 868.0f;
   static constexpr uint8_t sf = 12;         // defaults to 9 , min 6?
   // defaults to 125 , allowed 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250 and 500 kHz. Only available in %LoRa mode.
   static constexpr float bw = 125;
@@ -43,15 +48,27 @@ struct LoraPhyClass {
   enum class PhyState { None, Tx, Rx };
 
   PhyState phyState = PhyState::None;
-
+#if PROTO_DUPONT
   byte espTxPin = 12;
   byte espRxPin = 25;
   byte auxPin = 36;
+  byte m0Pin = 21;
+  byte m1Pin = 13;
+#endif
+#if M5STACK_CORE1
+  byte espTxPin = 17;
+  byte espRxPin = 16;
+  byte auxPin = 5;
+  byte m0Pin = 26;
+  byte m1Pin = 2;
+#endif
+
   LoRa_E32 e32ttl;
 
   // LoRa_E32( txE32pin,  rxE32pin, HardwareSerial*,  auxPin,  m0Pin,  m1Pin,  bpsRate,  serialConfig = SERIAL_8N1);
-  LoraPhyClass() : e32ttl(espRxPin, espTxPin, &Serial2, auxPin, 21, 13, UART_BPS_RATE_9600) {}
+  LoraPhyClass() : e32ttl(espRxPin, espTxPin, &Serial2, auxPin, m0Pin, m1Pin, UART_BPS_RATE_9600) {}
   void begin() {
+
     dbg.print("begin");
     Display.drawOneLine("LoRa Slave/Master");
 
@@ -60,7 +77,7 @@ struct LoraPhyClass {
       while (1) {
       }
     }
-    pinMode(espRxPin, INPUT_PULLUP);
+    // pinMode(espRxPin, INPUT_PULLUP);
     pinMode(auxPin, INPUT_PULLUP);
 
     delay(400);
@@ -68,7 +85,7 @@ struct LoraPhyClass {
     while (!printConfig()) {
       dbg.print("no config found");
       {
-        auto lk = Display.getScope();
+        auto lk = DisplayScope::get();
         Display.drawOneLine("no com with E32");
       }
       delay(1000);
@@ -120,6 +137,7 @@ struct LoraPhyClass {
     return 1000; // TODO
   }
 
+  bool isReceiving() const { return phyState == PhyState::Rx; }
   void rxMode() {
     // dbg.print("setting RX");
     phyState = PhyState::Rx;
@@ -140,6 +158,10 @@ struct LoraPhyClass {
     if (onTxFlag)
       onTxFlag();
     return 0; // TODO: radio.getTimeOnAir(lastSentPacketByteLen);
+  }
+
+  void setMaster(bool b) {
+    // do nothing for now
   }
 
   void read(String &s) {

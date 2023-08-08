@@ -1,10 +1,11 @@
 {
-    "configuration": "Revision=TTGO_LoRa32_V1,FlashFreq=80,UploadSpeed=921600,DebugLevel=warn,EraseFlash=none",
-    "board": "esp32:esp32:ttgo-lora32",
+    "configuration": "FlashMode=qio,FlashFreq=80,PartitionScheme=default,UploadSpeed=921600,DebugLevel=warn,EraseFlash=none",
+    "board": "esp32:esp32:m5stack-core-esp32",
     "sketch": "myLoRa.ino",
-    "port": "/dev/tty.wchusbserial53980151451",
+    "port": "/dev/tty.wchusbserial556F0066441",
     "output": "build",
     "prebuild": "./scripts/genVersionHeader.sh",
+    "postbuild": "export PATH=$PATH:/sbin ; ./ESPWebFs/fleetTools.sh build/myLoRa.ino.bin",
     "buildPreferences": [
         [
             "compiler.cpp.extra_flags",

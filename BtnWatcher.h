@@ -1,6 +1,9 @@
 #pragma once
+#ifdef BUTTON_A_PIN
+#define BUTTON_PIN BUTTON_A_PIN
+#else
 #define BUTTON_PIN 0
-
+#endif
 struct BtnWatcher {
   short pin;
   bool isInverted;

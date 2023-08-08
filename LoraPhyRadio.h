@@ -35,7 +35,8 @@ struct LoraPhyClass {
   std::function<void()> onRxFlag = {};
   std::function<void()> onTxFlag = {};
 
-  static constexpr bool invertIq = true;
+  static constexpr bool rxTxInvertIq = false;
+  static constexpr bool masterInvertIq = false;
   bool IQBasePolarization = true;
 
   LoraPhyClass() : radio(new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN)) {}
@@ -53,6 +54,8 @@ struct LoraPhyClass {
     // else
     //   radio.explicitHeader();
     chk(radio.setCRC(hasCrc));
+    // if (!rxTxInvertIq && !masterInvertIq)
+    //   chk(radio.invertIQ(IQBasePolarization));
 
     radio.setDio0Action(setFlag);
   }
@@ -66,10 +69,11 @@ struct LoraPhyClass {
       if (successStr != nullptr)
         dbg.print(successStr);
     } else {
+      auto sc = DisplayScope::get();
       dbg.print("failed at", ln, ", code ", getStrErrFromRlib(state));
       Display.drawOneLine(getStrErrFromRlib(state));
       // block a bit on error
-      delay(400);
+      delay(2000);
     }
     lastRlibState = state;
     return state == RADIOLIB_ERR_NONE;
@@ -90,22 +94,34 @@ struct LoraPhyClass {
     }
   }
 
+  bool isReceiving() const { return phyState == PhyState::Rx; }
+  void setMaster(bool b) {
+    IQBasePolarization = b;
+    if (masterInvertIq) {
+      if (!rxTxInvertIq) {
+        chk(radio.invertIQ(IQBasePolarization));
+      }
+      if (phyState == PhyState::Rx)
+        chk(radio.startReceive());
+    }
+  }
+
   void rxMode() {
     dbg.print("setting RX");
     flagRxOn = false;
     flagTxOn = false;
-    if (invertIq)
+    if (rxTxInvertIq)
       chk(radio.invertIQ(IQBasePolarization));
 
-    chk(radio.startReceive());
     phyState = PhyState::Rx;
+    chk(radio.startReceive());
   }
 
   void txMode() {
     dbg.print("setting TX");
     flagTxOn = false;
     flagRxOn = false;
-    if (invertIq)
+    if (rxTxInvertIq)
       chk(radio.invertIQ(!IQBasePolarization));
 
     // nothing to do?
@@ -121,7 +137,7 @@ struct LoraPhyClass {
     return getTimeOnAirMs(lastSentPacketByteLen);
   }
 
-  uint32_t getTimeOnAirMs(size_t numBytes) const { return radio.getTimeOnAir(numBytes) / 1000; }
+  uint32_t getTimeOnAirMs(size_t numBytes) { return radio.getTimeOnAir(numBytes) / 1000; }
 
   // void sendWaiting(const String &s) {
   //   auto t = send(s);
