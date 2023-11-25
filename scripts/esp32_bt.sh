@@ -2,7 +2,7 @@
 # set -e -x
 # Hacked together by Thorsten von Eicken in 2019
 # XTENSA_GDB="~/.platformio/packages/toolchain-xtensa32/bin/xtensa-esp32-elf-gdb"
-XTENSA_GDB="/Users/tinmarbook/Library/Arduino15/packages/esp32/tools/xtensa-esp32-elf-gcc/esp-2021r2-patch5-8.4.0/bin/xtensa-esp32-elf-gdb"
+XTENSA_GDB="/Users/tinmarbook/Library/Arduino15/packages/esp32/tools/xtensa-esp32-elf-gcc/gcc8_4_0-esp-2021r2-patch3/bin/xtensa-esp32-elf-gdb"
 
 # # Validate commandline arguments
 # if [ -z "$1" ]; then
